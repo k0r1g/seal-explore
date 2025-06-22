@@ -1,0 +1,67 @@
+nohup: ignoring input
+Active conda environment: seal_env
+Python path: /workspace/miniconda3/envs/seal_env/bin/python3
+Cleaning up any lingering processes on ports 8001 and 5555...
+Starting continual self-edits driver on GPU 1
+vLLM will use GPU 0 on port 8001
+ZMQ will use port 5555
+Working directory: /workspace/seal-explore
+Dataset: knowledge-incorporation/data/squad_val.json
+Output directory: knowledge-incorporation/results/continual_self_edits/kori/run0
+Available disk space: 17G
+HuggingFace cache: /workspace/hf_cache
+GPU memory utilization: 0.8
+/workspace/miniconda3/envs/seal_env/lib/python3.12/site-packages/transformers/utils/hub.py:111: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+
+================================================================================
+[Args] {
+  "dataset": "knowledge-incorporation/data/squad_val.json",
+  "n_sequences": 2,
+  "n_datapoints": 4,
+  "model": "Qwen/Qwen2.5-7B",
+  "gpus": "0,1",
+  "vllm_port": 8001,
+  "zmq_port": 5555,
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "max_tokens": 2048,
+  "gpu_memory_utilization": 0.8,
+  "lora_rank": 32,
+  "lora_alpha": 64,
+  "lora_dropout": 0.0,
+  "finetune_epochs": 10,
+  "finetune_lr": 0.001,
+  "batch_size": 1,
+  "gradient_accumulation_steps": 1,
+  "end_mask_substring": "",
+  "output_dir": "knowledge-incorporation/results/continual_self_edits/kori/run0",
+  "seed": 42
+}
+================================================================================
+
+
+================================================================================
+[vLLM] launching on GPU(s) 0 → :8001
+$ vllm serve Qwen/Qwen2.5-7B --host 127.0.0.1 --port 8001 --max-model-len 2048 --enable-lora --max-lora-rank 32 --gpu-memory-utilization 0.8 --trust-remote-code
+================================================================================
+
+
+================================================================================
+[Inner] launching on GPU 1, ZMQ :5555
+$ /workspace/miniconda3/envs/seal_env/bin/python3 -m knowledge-incorporation.src.inner.TTT_server --vllm_api_url http://127.0.0.1:8001 --model Qwen/Qwen2.5-7B --zmq_port 5555 --keep_adapter_dir
+================================================================================
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/workspace/seal-explore/knowledge-incorporation/src/continual/continual_self_edits.py", line 465, in <module>
+    main()
+  File "/workspace/seal-explore/knowledge-incorporation/src/continual/continual_self_edits.py", line 432, in main
+    mean_mat, std_mat = run_one_sequence(seq_idx, items, args)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/seal-explore/knowledge-incorporation/src/continual/continual_self_edits.py", line 221, in run_one_sequence
+    acc      = sum(correct) / len(correct)
+               ~~~~~~~~~~~~~^~~~~~~~~~~~~~
+ZeroDivisionError: division by zero
+Job finished.

@@ -64,8 +64,16 @@ def _banner(msg: str):
     print(msg)
     print("=" * 80 + "\n", flush=True)
 
-def _spawn_vllm(model: str, host: str, port: int, gpus: str, log_dir: Path, tag: str, lora_rank, max_model_len: int) -> subprocess.Popen:
+def _spawn_vllm(model: str, host: str, port: int, gpus: str, log_dir: Path, tag: str, lora_rank, max_model_len: int, gpu_memory_utilization: float = 0.9) -> subprocess.Popen:
     """Launch vLLM (LoRA-enabled) and wait for /health."""
+    # Aggressive port cleanup before starting
+    import subprocess as sp
+    try:
+        sp.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, timeout=5)
+        time.sleep(3)  # Wait for socket to be released
+    except:
+        pass
+    
     cmd = [
         "vllm",
         "serve",
@@ -79,6 +87,8 @@ def _spawn_vllm(model: str, host: str, port: int, gpus: str, log_dir: Path, tag:
         "--enable-lora",
         "--max-lora-rank",
         str(lora_rank),
+        "--gpu-memory-utilization",
+        str(gpu_memory_utilization),
         "--trust-remote-code",
     ]
     _banner(f"[vLLM] launching on GPU(s) {gpus} → :{port}\n$ {' '.join(cmd)}")
@@ -185,7 +195,7 @@ def run_one_sequence(seq_idx: int, items: List[Dict[str, Any]], args) -> Tuple[L
     logs_step_dir = Path(args.output_dir) / "logs"
 
     vllm = _spawn_vllm(current_model_path, "127.0.0.1", args.vllm_port, 
-                       args.vllm_gpus, logs_step_dir, base_tag, args.lora_rank, 2048)
+                       args.vllm_gpus, logs_step_dir, base_tag, args.lora_rank, 2048, args.gpu_memory_utilization)
     vllm_api = f"http://127.0.0.1:{args.vllm_port}"
     set_vllm_api_url(vllm_api)
 
@@ -217,6 +227,7 @@ def run_one_sequence(seq_idx: int, items: List[Dict[str, Any]], args) -> Tuple[L
     sock.close(); ctx.term()
     inner.terminate(); vllm.terminate()
     vllm.wait()
+    time.sleep(5)  # Give port time to be released
     torch.cuda.empty_cache()
 
     # Pre-compute question spans for convenience
@@ -235,7 +246,7 @@ def run_one_sequence(seq_idx: int, items: List[Dict[str, Any]], args) -> Tuple[L
         # ---------------- 1) spin up infra --------------------------------
         step_tag = f"seq{seq_idx}_step{k}"
         logs_step_dir = Path(args.output_dir) / "logs"
-        vllm = _spawn_vllm(current_model_path, "127.0.0.1", args.vllm_port, args.vllm_gpus, logs_step_dir, step_tag, args.lora_rank, max_model_len)
+        vllm = _spawn_vllm(current_model_path, "127.0.0.1", args.vllm_port, args.vllm_gpus, logs_step_dir, step_tag, args.lora_rank, max_model_len, args.gpu_memory_utilization)
         vllm_api = f"http://127.0.0.1:{args.vllm_port}"
         set_vllm_api_url(vllm_api)
         inner = _spawn_inner_server(vllm_api, current_model_path, args.zmq_port, args.inner_gpu, logs_step_dir, step_tag)
@@ -321,6 +332,7 @@ def run_one_sequence(seq_idx: int, items: List[Dict[str, Any]], args) -> Tuple[L
         zmq_sock.close(); zmq_ctx.term()
         inner.terminate(); vllm.terminate()
         vllm.wait()
+        time.sleep(5)  # Give port time to be released
         torch.cuda.empty_cache()
 
     # ---------------- 7) clean up remaining directories ------------------
@@ -378,6 +390,7 @@ def parse_args():
     p.add_argument("--temperature", type=float, default=1.0)
     p.add_argument("--top_p", type=float, default=0.95)
     p.add_argument("--max_tokens", type=int, default=8192)
+    p.add_argument("--gpu_memory_utilization", type=float, default=0.9, help="GPU memory utilization (0.0-1.0)")
 
     # Inner loop hyper-params (pass-through)
     p.add_argument("--lora_rank", type=int, default=32)

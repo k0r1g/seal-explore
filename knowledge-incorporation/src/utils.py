@@ -153,6 +153,36 @@ def grade_with_gpt4(prompts: List[str]) -> List[bool]:
     return verdicts
 
 
+def grade_with_qwen(prompts: List[str]) -> List[bool]:
+    """
+    Take already-formatted grading prompts, send each to local Qwen via vLLM,
+    and return the yes/no verdicts as booleans.
+    """
+    verdicts: List[bool] = []
+    
+    for p in prompts:
+        for attempt in range(3):
+            try:
+                response = _api("completions", {
+                    "model": "Qwen/Qwen2.5-7B",
+                    "prompt": [p],
+                    "n": 1,
+                    "temperature": 0.0,
+                    "max_tokens": 10,
+                    "stop_token_ids": []
+                }, timeout=30)
+                
+                if response and "choices" in response:
+                    text = response["choices"][0].get("text", "").strip()
+                    verdicts.append(parse_yes_no(text))
+                    break
+            except Exception:
+                time.sleep(1.5 * (attempt + 1))
+        else:
+            verdicts.append(False)  # couldn't grade this prompt
+
+    return verdicts
+
 def parse_yes_no(text: str) -> bool:
     """Return True for yes, False for no or ambiguous responses."""
     if _yes_re.search(text) and not _no_re.search(text):

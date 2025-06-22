@@ -50,7 +50,8 @@ from ..utils import (
     generate,
     format_answer_prompts,
     format_grade_prompts,
-    grade_with_gpt4,
+    grade_with_qwen,
+    #grade_with_gpt4,
 )
 
 # ---------------------------  CONFIG & LOGGING  ----------------------- #
@@ -90,7 +91,8 @@ def accuracy_and_texts(
 
     if q_sub:
         grade_prompts = format_grade_prompts(q_sub, p_sub)
-        graded = grade_with_gpt4(grade_prompts)
+        graded = grade_with_qwen(grade_prompts)
+        # graded = grade_with_gpt4(grade_prompts)
         for i, v in zip(idx_sub, graded):
             verdicts[i] = v
     LOG.debug("verdicts:", verdicts)
